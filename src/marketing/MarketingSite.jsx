@@ -225,7 +225,7 @@ const Nav = () => {
       <div className="mk-nav-inner">
         <a href="#top" className="mk-brand">
           <img
-            src="/assets/logos/peak-logotype-new.svg"
+            src={`${import.meta.env.BASE_URL}assets/logos/peak-logotype-new.svg`}
             alt="Peak"
             className="mk-logo"
           />
@@ -242,8 +242,8 @@ const Nav = () => {
 const Hero = () => {
   const variant = useCardVariant();
   const heroSrc = variant === 'positive'
-    ? '/assets/videos/squaremp_square.mp4'
-    : '/assets/videos/video-2.mp4';
+    ? `${import.meta.env.BASE_URL}assets/videos/squaremp_square.mp4`
+    : `${import.meta.env.BASE_URL}assets/videos/video-2.mp4`;
   return (
   <header className="mk-hero" id="top">
     <LoopVideo src={heroSrc} className="mk-hero-bg" crossfade={false}/>
@@ -525,7 +525,7 @@ const Footer = () => {
       <div className="mk-footer-spacer" aria-hidden="true" ref={spacerRef}/>
       <footer className="mk-footer" style={{ '--reveal-p': p }}>
         <LoopVideo
-          src="/assets/videos/mp_square.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/mp_square.mp4`}
           className="mk-footer-bg"
           crossfade={false}
         />
@@ -534,7 +534,7 @@ const Footer = () => {
             vertical center between the logo bottom and the fineprint top,
             fineprint anchored to the bottom of the viewport. No tagline. */}
         <img
-          src="/assets/logos/peak-logotype-new.svg"
+          src={`${import.meta.env.BASE_URL}assets/logos/peak-logotype-new.svg`}
           alt="Peak"
           className="mk-footer-logo"
         />

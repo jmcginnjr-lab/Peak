@@ -390,7 +390,7 @@ export function SceneEvent({ progress }) {
               v.volume = 0;
               v.setAttribute('muted', '');
             }}
-            src="/assets/videos/mp_square.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/mp_square.mp4`}
             className="sc-event-cover-photo"
             muted
             autoPlay
