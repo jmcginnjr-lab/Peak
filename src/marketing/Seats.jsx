@@ -1,188 +1,134 @@
-// Seats — five 12×12 floor-plan archetypes rendered as CSS-grid cells.
+// Seats — five floor-plan archetypes shown alongside the hero copy.
 //
-// Char legend:
-//   .  empty / negative space (hallway, walkway, garden, stage, bar)
-//   s  available seat / table — outline only, fades in on scroll
-//   1  VIP h1 — outline appears on reveal, fills brass at stage 1+
-//   2  VIP h2 — outline appears on reveal, fills brass at stage 2+
-//   3  VIP h3 — outline appears on reveal, fills brass at stage 3
+// Each plan is a realistic SVG floor plan rendered in brass. SVGs are
+// imported as raw strings via Vite's ?raw query so we can manipulate
+// the markup at mount time: a random ~22% of the non-envelope shapes
+// (seats, tables, beds, rooms) are tagged `class="hi"` for the bright
+// gold highlight. The rest sit at a softer brass level just brighter
+// than the outer-envelope strokes — reads as "some tables booked, the
+// rest open" rather than a fully painted floor plan.
 //
-// Cell visibility is driven by --seat-progress on the parent (a 0→1 value
-// scaled from scroll position). Each cell carries a per-cell --threshold
-// (random 0..1); the cell is visible when progress >= threshold. This makes
-// the dot-matrix render reverse cleanly when the user scrolls back up.
+// Reveal is opacity-driven by `--seat-progress` on the parent (0..1
+// from scroll). Same hook the dot-matrix used.
+//
+// The figure order — Airplane, Theater, Restaurant, Arena, Hotel — is
+// load-bearing for the CSS (`:nth-child` positions Restaurant centre,
+// translates Theater/Arena inward, hides Airplane/Hotel on phones).
 
 import React from 'react';
 
+import airplaneRaw from './floorplans/airplane.svg?raw';
+import theaterRaw from './floorplans/theater.svg?raw';
+import restaurantRaw from './floorplans/restaurant.svg?raw';
+import arenaRaw from './floorplans/arena.svg?raw';
+import hotelRaw from './floorplans/hotel.svg?raw';
+
 const PLANS = [
-  {
-    // Airplane — VIPs at the top (1st class). Tapered nose only — the cabin
-    // continues straight to the bottom of the grid so the airplane reads as
-    // a tube cut off rather than a fully-shaped fuselage.
-    label: 'Airplane',
-    shape: 'square',
-    grid: [
-      '.....ss.....',
-      '....ssss....',
-      '..ss.11.ss..',
-      '..ss.11.ss..',
-      '..ss.ss.ss..',
-      '..ss.ss.ss..',
-      '..ss.ss.ss..',
-      '..ss.ss.ss..',
-      '..ss.ss.ss..',
-      '..ss.ss.ss..',
-      '..ss.ss.ss..',
-      '..ss.ss.ss..',
-    ],
-  },
-  {
-    // Theater — VIPs in the front rows (closest to the implied stage above
-    // the grid). Audience fans out toward the back.
-    label: 'Theater',
-    shape: 'square',
-    grid: [
-      '....2222....',
-      '...222222...',
-      '..ssssssss..',
-      '.ssssssssss.',
-      'ssssssssssss',
-      'ssssssssssss',
-      'ssssssssssss',
-      'ssssssssssss',
-      'ssssssssssss',
-      'ssssssssssss',
-      'ssssssssssss',
-      'ssssssssssss',
-    ],
-  },
-  {
-    // Restaurant — VIP booths along the windows (top + bottom edges).
-    // Interior tables in clusters of 2 and 4. Round glyphs.
-    label: 'Restaurant',
-    shape: 'circle',
-    grid: [
-      '1111....1111',
-      '............',
-      'oo.oo.oo.oo.',
-      '............',
-      'oooo.oooo...',
-      'oooo.oooo...',
-      '............',
-      'oo.oo.oo.oo.',
-      '............',
-      'oooo.oooo...',
-      'oooo.oooo...',
-      '1111....1111',
-    ],
-  },
-  {
-    // Arena — VIPs in the rows directly adjacent to the stage (best view).
-    // Stage is the small empty rectangle in the center.
-    label: 'Arena',
-    shape: 'square',
-    grid: [
-      '...ssssss...',
-      '.ssssssssss.',
-      'ssssssssssss',
-      'ssssssssssss',
-      'ssss3333ssss',
-      'ssss....ssss',
-      'ssss....ssss',
-      'ssss....ssss',
-      'ssss3333ssss',
-      'ssssssssssss',
-      '.ssssssssss.',
-      '...ssssss...',
-    ],
-  },
-  {
-    // Hotel — VIPs along the outer edges (ocean / mountain view rooms).
-    // Inner rooms wrap a small central courtyard for added density.
-    label: 'Hotel',
-    shape: 'square',
-    grid: [
-      '22ss.ss.ss22',
-      '............',
-      '.ss.ss.ss.ss',
-      '.ss.ss.ss.ss',
-      '............',
-      '....ssss....',
-      '....ssss....',
-      '............',
-      '.ss.ss.ss.ss',
-      '.ss.ss.ss.ss',
-      '............',
-      '22ss.ss.ss22',
-    ],
-  },
+  { label: 'Airplane',   raw: airplaneRaw,   highlightFraction: 0.18 },
+  { label: 'Theater',    raw: theaterRaw,    highlightFraction: 0.20 },
+  { label: 'Restaurant', raw: restaurantRaw, highlightFraction: 0.18 },
+  { label: 'Arena',      raw: arenaRaw,      highlightFraction: 0.22 },
+  { label: 'Hotel',      raw: hotelRaw,      highlightFraction: 0.22 },
 ];
 
-const cellClass = (ch) => {
-  if (ch === 's' || ch === 'o') return 'cell seat';
-  if (ch === '1') return 'cell vip h1';
-  if (ch === '2') return 'cell vip h2';
-  if (ch === '3') return 'cell vip h3';
-  return 'cell empty';
+// Tag a random subset of the SVG's <path> / <circle> shapes with
+// `class="hi"` plus an inline `--hi-threshold` between 0.5 and 0.85.
+// CSS reads the threshold against the global `--seat-progress` to fade
+// each shape from the neutral brass up to bright gold at staggered
+// moments — reads as people choosing tables/seats organically rather
+// than a single flash.
+//
+// Shapes carrying `stroke-opacity` (the outer envelopes — fuselage
+// curve, arena ring, hotel/restaurant building outline, theater stage
+// rail) are skipped so the envelope always sits as quiet context.
+const highlightShapes = (raw, fraction) => {
+  const tagRegex = /<(path|circle)\b[^>]*?\/>/g;
+  const matches = [];
+  let m;
+  while ((m = tagRegex.exec(raw)) !== null) {
+    matches.push({
+      tag: m[0],
+      start: m.index,
+      end: m.index + m[0].length,
+      tagName: m[1],
+      isEnvelope: /stroke-opacity/.test(m[0]),
+    });
+  }
+  const candidates = matches.filter((x) => !x.isEnvelope);
+  const target = Math.max(1, Math.round(candidates.length * fraction));
+  // Shuffle and pick `target`. Math.random is fine — selection is stable
+  // for the component's lifetime via useMemo.
+  const picked = [...candidates]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, target);
+  const picks = new Set(picked.map((p) => p.start));
+
+  let out = '';
+  let cursor = 0;
+  for (const m2 of matches) {
+    out += raw.slice(cursor, m2.start);
+    if (picks.has(m2.start)) {
+      // Threshold in [0.5, 0.85]: each highlighted shape starts as
+      // neutral and ramps to gold once scroll progress passes its own
+      // threshold. The spread + randomness gives the organic feel.
+      const threshold = (0.5 + Math.random() * 0.35).toFixed(3);
+      out += m2.tag.replace(
+        `<${m2.tagName}`,
+        `<${m2.tagName} class="hi" style="--hi-threshold:${threshold}"`
+      );
+    } else {
+      out += m2.tag;
+    }
+    cursor = m2.end;
+  }
+  out += raw.slice(cursor);
+  return out;
 };
 
-const Plan = ({ grid, shape }) => {
-  // Stable per-cell reveal thresholds (0..1). Computed once so the dot-matrix
-  // pattern doesn't reshuffle on re-render.
-  const thresholds = React.useMemo(
-    () => grid.flatMap((row) => [...row].map(() => Math.random())),
-    [grid]
+const Seats = ({ stage = 0, showRestaurant = false }) => {
+  // Random selection stable for the component's lifetime.
+  const processed = React.useMemo(
+    () => PLANS.map((p) => ({ ...p, svg: highlightShapes(p.raw, p.highlightFraction) })),
+    []
   );
+
   return (
-    <div className={`plan-grid shape-${shape}`} aria-hidden="true">
-      {grid.flatMap((row, ri) =>
-        [...row].map((ch, ci) => {
-          const idx = ri * 12 + ci;
-          return (
-            <span
-              key={`${ri}-${ci}`}
-              className={cellClass(ch)}
-              style={{ '--threshold': thresholds[idx].toFixed(3) }}
-            />
-          );
-        })
-      )}
-    </div>
+    <section
+      className="mk-seats"
+      data-stage={stage}
+      data-show-restaurant={showRestaurant ? 'true' : 'false'}
+    >
+      <div className="mk-seats-inner">
+        <div className="mk-seats-mark" aria-hidden="true">
+          <img src={`${import.meta.env.BASE_URL}assets/logos/peak-mark-gold.svg`} alt="" />
+        </div>
+        <h2 className="mk-seats-h">Unlock the value of your seats.</h2>
+        <p className="mk-seats-sub">
+          Airlines, theaters, hotels, and venues price demand by time and
+          location. Peak brings that same model to restaurants — simply and
+          natively.
+        </p>
+        <div className="mk-seats-row">
+          {processed.map(({ label, svg }) => {
+            const isRest = label === 'Restaurant';
+            return (
+              <figure
+                className={`plan-figure ${isRest ? 'plan-figure--restaurant' : ''}`}
+                key={label}
+              >
+                <div
+                  className="plan-svg"
+                  aria-hidden="true"
+                  dangerouslySetInnerHTML={{ __html: svg }}
+                />
+                <figcaption className="plan-label">{label}</figcaption>
+              </figure>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 };
-
-const Seats = ({ stage = 0, showRestaurant = false }) => (
-  <section
-    className="mk-seats"
-    data-stage={stage}
-    data-show-restaurant={showRestaurant ? 'true' : 'false'}
-  >
-    <div className="mk-seats-inner">
-      <div className="mk-seats-mark" aria-hidden="true">
-        <img src={`${import.meta.env.BASE_URL}assets/logos/peak-mark-gold.svg`} alt="" />
-      </div>
-      <h2 className="mk-seats-h">Unlock the value of your seats.</h2>
-      <p className="mk-seats-sub">
-        Airlines, theaters, hotels, and venues price demand by time and
-        location. Peak brings that same model to restaurants — simply and
-        natively.
-      </p>
-      <div className="mk-seats-row">
-        {PLANS.map(({ label, grid, shape }) => {
-          const isRest = label === 'Restaurant';
-          return (
-            <figure
-              className={`plan-figure ${isRest ? 'plan-figure--restaurant' : ''}`}
-              key={label}
-            >
-              <Plan grid={grid} shape={shape} />
-              <figcaption className="plan-label">{label}</figcaption>
-            </figure>
-          );
-        })}
-      </div>
-    </div>
-  </section>
-);
 
 export default Seats;

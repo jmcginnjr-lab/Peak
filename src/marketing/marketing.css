@@ -1639,60 +1639,69 @@ body {
   transform: scale(1);
 }
 
-/* Plan grid — every plan is a 12×12 CSS grid of cells. Empty cells preserve
-   alignment; seat cells render a small dim outline shape; VIP cells fill
-   brass when the cascade reaches them. Structural elements (bar, stage,
-   garden, hallway) are encoded as negative space — no filled blocks. */
-.plan-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 18px);
-  grid-template-rows: repeat(12, 18px);
-}
-.cell {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-/* Seat shape — outline by default. Square or circle picked by .shape-*.
-   The cell visibility is gated by --threshold (random 0..1 set per cell)
-   and --seat-progress (0..1 set on the pin from scroll). When progress
-   exceeds threshold, the cell snaps in. Reverses naturally on scroll-up. */
-.cell.seat::before,
-.cell.vip::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  background: transparent;
-  border: 1px solid rgba(239,232,219,0.50);
-  /* Thin transition window: cell flips on within 3% of progress past its
-     threshold. Wider value (e.g. 30) → snappier; lower (e.g. 10) → softer. */
-  /* Multiplier sets the per-cell fade window. *6 → each cell takes ~16% of
-     overall progress to fade from invisible to fully visible, so the
-     matrix reads as a soft fade rather than a snappy step. */
-  opacity: clamp(
-    0,
-    calc((var(--seat-progress, 0) - var(--threshold, 1)) * 6),
-    1
-  );
-  transition-property: background, border-color, box-shadow, transform;
-  transition-duration: 520ms;
-  transition-timing-function: cubic-bezier(0.2, 0.6, 0.2, 1);
-}
-.plan-grid.shape-square .cell.seat::before,
-.plan-grid.shape-square .cell.vip::before { border-radius: 1.5px; }
-.plan-grid.shape-circle .cell.seat::before,
-.plan-grid.shape-circle .cell.vip::before { border-radius: 50%; }
+/* Plan SVG — each archetype is a realistic floor plan injected inline
+   into a square frame (see Seats.jsx). Three brightness tiers:
+     • Envelope (outer fuselage / arena ring / building outline) —
+       carries `stroke-opacity="0.25"` in the SVG markup, reads as
+       quiet architectural context.
+     • Neutral shapes (most seats / tables / rooms) — a touch brighter
+       than the envelope but still muted, so the floor plan reads as
+       sketch, not paint-by-numbers.
+     • `.hi` shapes (~22% picked randomly per mount in Seats.jsx) —
+       full bright gold, like "these seats are booked / spoken for".
 
-/* VIP highlight — same outline reveal as regular seats, but on stage
-   advance the outline FILLS with brass to read as "taken / booked". */
-[data-stage="1"] .cell.vip.h1::before,
-[data-stage="2"] .cell.vip.h1::before, [data-stage="3"] .cell.vip.h1::before,
-[data-stage="2"] .cell.vip.h2::before, [data-stage="3"] .cell.vip.h2::before,
-[data-stage="3"] .cell.vip.h3::before {
-  background: var(--gold);
-  border-color: var(--gold);
-  box-shadow: 0 0 10px rgba(201,166,113,0.50);
+   Reveal is opacity-driven by `--seat-progress` on the parent (0..1
+   from scroll). Same hook the dot-matrix used. */
+.plan-svg {
+  /* Uniform height across plans; widths follow each SVG's intrinsic
+     aspect ratio so the row reads as a triptych of related but
+     differently-shaped artifacts rather than five squares in a grid. */
+  height: 220px;
+  width: auto;
+  display: block;
+  /* Whole plan fades in over the early/mid scroll window. The .hi
+     gold-up animation below picks up around the same time the reveal
+     finishes, so the sequence reads as "lines drawn, then seats book". */
+  opacity: clamp(0, calc(var(--seat-progress, 0) * 1.6 - 0.1), 1);
+  transition: opacity 220ms cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+.plan-svg svg {
+  height: 100%;
+  width: auto;
+  display: block;
+  overflow: visible;
+}
+/* Airplane sits ~25% smaller than the other archetypes — its tall +
+   narrow shape was reading visually heavier than the rest of the row. */
+.plan-figure:nth-child(1) .plan-svg {
+  height: 165px;
+}
+/* Default (neutral) stroke — overrides the SVG file's baked-in
+   #C1A36E so only the highlighted shapes read as gold. Translucent
+   brass keeps the plan legible without dominating. */
+.plan-svg svg path,
+.plan-svg svg circle {
+  stroke: rgba(193,163,110,0.45);
+}
+/* Envelope — let the SVG's own stroke-opacity attribute do its work.
+   Restored to opaque brass here so the 0.25 attribute lands cleanly. */
+.plan-svg svg [stroke-opacity] {
+  stroke: #C1A36E;
+}
+/* Highlighted shapes — each one carries its own `--hi-threshold` in
+   [0.5, 0.85] (set inline by Seats.jsx). As `--seat-progress` crosses
+   the threshold the stroke ramps from neutral brass up to full gold.
+   Multiplier 6 → each highlight takes ~17% of progress to fully glow,
+   so the lights come on organically rather than in lockstep. */
+.plan-svg svg .hi {
+  stroke: rgba(
+    193, 163, 110,
+    clamp(
+      0.45,
+      calc(0.45 + (var(--seat-progress, 0) - var(--hi-threshold, 1)) * 6),
+      1
+    )
+  );
 }
 
 /* Plan figure — layout for the grid + label below */
@@ -1741,13 +1750,12 @@ body {
   .plan-figure:nth-child(2) { transform: translateX(72px); }
   .plan-figure:nth-child(4) { transform: translateX(-72px); }
   .mk-seats[data-show-restaurant="true"] .plan-figure { transform: translateX(0); }
-  /* Tablet-sized cells — 18px → 14px keeps the row from running edge to
-     edge on a smaller laptop while still reading clearly. */
-  .plan-grid {
-    grid-template-columns: repeat(12, 14px);
-    grid-template-rows: repeat(12, 14px);
-  }
-  .cell.seat::before, .cell.vip::before { width: 6px; height: 6px; }
+  /* Tablet — shrink the SVG plan a touch so the visible triptych
+     (Theater + Restaurant + Arena) sits comfortably across a laptop.
+     Width follows aspect; airplane stays ~25% smaller (not visible at
+     this breakpoint, but the rule keeps the proportion if revealed). */
+  .plan-svg { height: 180px; width: auto; }
+  .plan-figure:nth-child(1) .plan-svg { height: 135px; }
 }
 @media (max-width: 720px) {
   .mk-seats-h { font-size: 32px; }
@@ -1763,10 +1771,8 @@ body {
      reads as a tight, centered triptych. */
   .plan-figure:nth-child(2) { transform: translateX(72px); }
   .plan-figure:nth-child(4) { transform: translateX(-72px); }
-  .plan-grid {
-    grid-template-columns: repeat(12, 9px);
-    grid-template-rows: repeat(12, 9px);
-  }
-  .cell.seat::before, .cell.vip::before { width: 4px; height: 4px; }
+  .plan-svg { height: 110px; width: auto; }
+  /* Airplane is hidden on phones; the rule is here for parity. */
+  .plan-figure:nth-child(1) .plan-svg { height: 82px; }
   .plan-label { font-size: 10px; letter-spacing: 0.18em; }
 }

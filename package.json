@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:gh-pages": "vite build && cp dist/index.html dist/404.html",
+    "build:gh-pages": "vite build && node -e \"require('fs').copyFileSync('dist/index.html','dist/404.html')\"",
     "deploy": "npm run build:gh-pages && gh-pages -d dist -t true"
   },
   "dependencies": {

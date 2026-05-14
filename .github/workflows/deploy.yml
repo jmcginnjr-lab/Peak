@@ -35,9 +35,7 @@ jobs:
       - name: Build
         run: npm run build:gh-pages
         env:
-          # Uncomment + set if deploying to a project page (not a user
-          # page or custom domain). Leading + trailing slash required.
-          # BASE_PATH: /your-repo-name/
+          BASE_PATH: /Peak/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

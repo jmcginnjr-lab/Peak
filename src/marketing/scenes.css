@@ -1572,31 +1572,25 @@
   mix-blend-mode: overlay;
   opacity: 0.4;
 }
-/* Bear watermark — Peak's answer to the AMEX Centurion etching. The
-   bear SVG is used as a CSS mask so we can paint it with our own gold
-   tint (instead of the source's black stroke). Held at very low opacity
-   so it reads as a quiet textural detail, not a focal element. */
+/* Card texture — diagonal fine-line hatch layered over a soft radial
+   gold bloom. The hatch (45°, 10px pitch) reads as woven fabric or
+   brushed metal — different angle/scale to the existing horizontal +
+   vertical grain so the two layers combine into a rich surface rather
+   than competing. The bloom adds warmth at the right-centre, where the
+   eye lands on the name block. */
 .sc-vip-card-bear {
   position: absolute; inset: 0;
   pointer-events: none;
-  background-color: rgba(214,184,132,0.20);
-  -webkit-mask-image: url('/assets/bears/bear-01.svg');
-          mask-image: url('/assets/bears/bear-01.svg');
-  /* Mask is sized larger than the card and anchored to the top so the
-     bear's head/upper body is what reads in the watermark — like the
-     AMEX Centurion bust on the front of the card. Lower body / tray
-     spills past the bottom of the card and is clipped out. */
-  -webkit-mask-size: auto 220%;
-          mask-size: auto 220%;
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  -webkit-mask-position: 50% 0%;
-          mask-position: 50% 0%;
-  /* Sits above the grain but below the corner labels, name block, and
-     seal — those carry their own z-index via document order + the
-     parent's stacking context. */
+  background:
+    radial-gradient(ellipse 75% 65% at 72% 44%, rgba(193,163,110,0.10) 0%, transparent 68%),
+    repeating-linear-gradient(
+      45deg,
+      transparent 0px,
+      transparent 9px,
+      rgba(193,163,110,0.04) 9px,
+      rgba(193,163,110,0.04) 10px
+    );
   z-index: 0;
-  opacity: 0.55;
 }
 .sc-vip-card-corner {
   position: absolute;
